@@ -6,6 +6,9 @@
 #metadata (preferências locais do usuário ligadas à instalação de software)
 .metadata/
 
+#launch configs (STM32CubeIDE/Eclipse run/debug configs; usually machine-specific)
+*.launch
+
 #Debug (pastas de build onde o compilador coloca tudo que gera)
 Debug/
 debug/

@@ -1,68 +1,66 @@
-# ============================================================
-# STM32CubeIDE / Eclipse
-# ============================================================
+#Projetos STM32CubeIDE não utilizam CMake para a geração de Makefiles. Os arquivos de automação de compilação (Makefiles) são gerados automaticamente pelo STM32CubeMX durante o processo de geração de código. Portanto, modificações manuais nos Makefiles dentro das pastas de Build serão perdidas na próxima sincronização do CubeMX.
+
+#settings (preferencias do ambiente de desenvolvimento, contém caminhos absolutios dos arquivos necessários para compilação e ligação)
 .settings/
-*.prefs
-languagesettings.xml
-*.launch
 
-# ============================================================
-# Build directories
-# ============================================================
+#metadata (preferências locais do usuário ligadas à instalação de software)
+.metadata/
+
+#Debug (pastas de build onde o compilador coloca tudo que gera)
 Debug/
+debug/
 Release/
-build/
+release
 
-# ============================================================
-# Build artifacts
-# ============================================================
-*.o
+# Prerequisites (arquivos de dependência de cada arquivo C)
 *.d
+
+# Object files (Códigos-objeto)
+*.o
+*.ko
+*.obj
+
+# Linker output (saídas de ligador, específicos de Microsoft/Windows)
+*.ilk
+*.exp
+
+# Executables with debug symbols (e relatório detalhado do uso de memória)
 *.elf
-*.bin
-*.hex
 *.map
-*.list
-*.siz
 
-# ============================================================
-# Generated dependency files
-# ============================================================
+# Libraries (bibliotecas estáticas)
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (bibliotecas dinâmicas)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# --- Flash Memory Images (Production) ---
+# Raw data to be flashed into the MCU (no debug symbols)
+*.hex
+*.bin
+
+# --- Host-side Executables (PC/Tools) ---
+# Files generated for the development machine, not the target MCU
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+
+# Debug files
+*.dSYM/
 *.su
-*.cyclo
-*.stackdump
+*.idb
+*.pdb
 
-# ============================================================
-# CMake intermediate files
-# ============================================================
-CMakeFiles/
-cmake_install.cmake
-CMakeCache.txt
-
-# ============================================================
-# OS / Editor files
-# ============================================================
-.DS_Store
-Thumbs.db
-*~
-*.swp
-
-# ============================================================
-# Python / scripts
-# ============================================================
-__pycache__/
-*.pyc
-
-# ============================================================
-# DO NOT IGNORE (documentação explícita)
-# ============================================================
-# .ioc
-# Core/
-# Drivers/
-# Src/
-# Inc/
-# .project
-# .cproject
-# CMakeLists.txt
-# cubeide-gcc.cmake
-# *.ld
+# Documentation files
+**/docs/html/
+**/docs/rtf/
+**/docs/latex/
+**/docs/**/*.log

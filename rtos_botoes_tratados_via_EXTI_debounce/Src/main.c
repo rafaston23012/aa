@@ -24,6 +24,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "gpio.h"
+#include "button_queue.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -198,39 +199,68 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 /**
- * @brief Callback de interrupção externa (EXTI) para tratamento de eventos em GPIO.
+ * @brief Callback chamada pelo HAL quando ocorre interrupção em pinos EXTI (botões).
  *
- * Esta função é chamada automaticamente pela HAL quando ocorre uma interrupção EXTI
- * em um pino GPIO configurado para gerar interrupção. O parâmetro @p GPIO_Pin
- * identifica qual pino gerou o evento.
+ * Esta função é chamada automaticamente pelo HAL dentro do handler da interrupção
+ * do pino GPIO configurado para EXTI. Ou seja, ela é executada no contexto de uma ISR.
  *
- * Neste projeto, a rotina implementa o seguinte mapeamento:
- * - Botao_A_Pin (PB12) alterna o estado do LED vermelho (LED_R_Pin)
- * - Botao_B_Pin (PA15) alterna o estado do LED azul    (LED_B_Pin)
- * - Botao_C_Pin (PB5)  alterna o estado do LED verde   (LED_G_Pin)
+ * @param[in] GPIO_Pin Identificador do pino que gerou a interrupção. Ex.: GPIO_PIN_12, GPIO_PIN_15, GPIO_PIN_5.
  *
- * @param GPIO_Pin Identificador do pino que gerou a interrupção EXTI.
- * @return void
+ * @details
+ * - O objetivo desta função é registrar eventos de botão sem executar código pesado dentro da ISR.
+ * - Em sistemas RTOS, é importante que a ISR seja curta e rápida, para que outras interrupções
+ *   e tasks possam ser atendidas sem atraso.
+ *
+ * Passos realizados:
+ * 1. Identifica qual botão gerou o evento, com base no pino que gerou a interrupção.
+ * 2. Lê o estado atual do pino (SET ou RESET) para determinar se ocorreu uma borda de subida
+ *    (pressionamento/soltura do botão, dependendo da configuração do circuito e pull-up/pull-down).
+ * 3. Cria uma estrutura `ButtonEvent_t` contendo:
+ *    - `button_id`: identificador do botão
+ *    - `rising_edge`: flag indicando borda de subida (1) ou descida (0)
+ * 4. Envia a estrutura para a fila do FreeRTOS (`buttonQueueHandle`) usando
+ *    `osMessageQueuePut()` com timeout 0, ou seja, não bloqueante.
+ *
+ * @note Nunca use funções bloqueantes dentro de ISR, como HAL_Delay() ou loops longos,
+ *       pois isso pode travar o sistema ou atrasar outras interrupções.
+ *
+ * @note Se a fila estiver cheia, o evento será descartado. Em aplicações críticas,
+ *       pode-se contar os eventos perdidos ou aumentar a profundidade da fila.
+ *
+ * @note O tratamento dos LEDs, debounce e lógica de controle são realizados em uma task separada,
+ *       que retira os eventos da fila e processa de forma segura e eficiente.
+ *
+ * @warning Esta função não deve realizar delays nem operações demoradas, apenas empacotar
+ *          o evento e enviar para a fila.
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  switch (GPIO_Pin)
-  {
-    case Botao_A_Pin:   /* PB12 → LED_R */
-      HAL_GPIO_TogglePin(GPIOA, LED_R_Pin);
-      break;
+    ButtonEvent_t evt;
 
-    case Botao_B_Pin:   /* PA15 → LED_B */
-      HAL_GPIO_TogglePin(GPIOA, LED_B_Pin);
-      break;
+    /* Identifica o botão que gerou o evento */
+    switch (GPIO_Pin)
+    {
+        case GPIO_PIN_12:  /* Botão A */
+            evt.button_id = 12;
+            evt.rising_edge = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_SET);
+            break;
 
-    case Botao_C_Pin:    /* PB5 → LED_G */
-      HAL_GPIO_TogglePin(GPIOA, LED_G_Pin);
-      break;
+        case GPIO_PIN_15:  /* Botão B */
+            evt.button_id = 15;
+            evt.rising_edge = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_15) == GPIO_PIN_SET);
+            break;
 
-    default:
-      break;
-  }
+        case GPIO_PIN_5:   /* Botão C */
+            evt.button_id = 5;
+            evt.rising_edge = (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET);
+            break;
+
+        default:
+            return; /* pino desconhecido: ignora */
+    }
+
+    /* Envia evento para a fila (não bloqueante dentro de ISR) */
+    (void)osMessageQueuePut(get_buttonQueueHandle(), &evt, 0U, 0U);
 }
 
 /* USER CODE END 4 */

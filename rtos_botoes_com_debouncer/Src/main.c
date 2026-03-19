@@ -2,7 +2,10 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body
+  * @brief          : Este projeto realiza as mesmas tarefas do projeto "botoes_com_debounce"
+  * 				Os códigos foram desenvolvidos em cima dos códigos gerados pelo STM32CubeMX.
+  * @author			: Wu Shin Ting
+  * @date			: 19/03/2026
   ******************************************************************************
   * @attention
   *

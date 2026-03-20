@@ -1,11 +1,11 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file 	    : freertos.c
-  * @brief      : Code for freertos applications (fila/queue foi aplicada para coordenar
-  * 				oe eventos de uma tarefa)
-  * @author		: Wu Shin-Ting
-  * @date		: 26/01/2026
+  * @file       freertos.c
+  * @brief      Code for freertos applications (fila/queue foi aplicada para coordenar
+  *             os eventos entre interrupção e tarefa)
+  * @author     Wu Shin-Ting
+  * @date       26/01/2026
   ******************************************************************************
   * @attention
   *
@@ -17,6 +17,40 @@
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+  * @details
+  * Em FreeRTOS usando a camada CMSIS-RTOS2, podemos enviar dados para uma tarefa
+  * por meio de filas (queues), permitindo que esses dados sejam processados
+  * posteriormente em contexto de tarefa. Essas filas são representadas por um identificador do tipo ::osMessageQueueId_t,
+  * também chamado de "handle".
+  *
+  * Um "handle" representa a fila e contém as informações necessárias para que
+  * diferentes partes do sistema possam interagir com ela, por exemplo:
+  * - enviar eventos de botão para a fila (ex.: a partir de uma ISR/EXTI callback)
+  * - receber eventos na task responsável por processar os botões
+  *
+  * Importante:
+  * - A fila em si não processa os dados; ela apenas armazena e organiza os eventos.
+  * - O processamento é realizado por uma tarefa que consome os dados da fila.
+  *
+  * Por padrão, o CubeMX gera o handle da fila como uma variável global no
+  * arquivo `freertos.c`:
+  * @code
+  * osMessageQueueId_t buttonQueueHandle;
+  * @endcode
+  *
+  * Entretanto, boas práticas de engenharia de software recomendam evitar
+  * expor variáveis globais diretamente (via `extern`) sempre que possível.
+  *
+  * Vantagens:
+  * - encapsula o acesso ao recurso
+  * - evita espalhar `extern` pelo projeto
+  * - facilita refatorações futuras (ex.: mudar o nome da fila ou criar múltiplas filas)
+  *
+  * Atenção:
+  * - A fila precisa ter sido criada antes de ser utilizada.
+  *   Em geral, isso ocorre dentro de ::MX_FREERTOS_Init().
+  * - Se utilizada antes da criação, o retorno do handle pode ser `NULL`.
+  *
   */
 /* USER CODE END Header */
 
@@ -56,11 +90,10 @@
  */
 osMessageQueueId_t buttonQueueHandle;
 /* USER CODE END Variables */
-
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
+/* Definitions for buttonTask */
+osThreadId_t buttonTaskHandle;
+const osThreadAttr_t buttonTask_attributes = {
+  .name = "buttonTask",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
@@ -70,7 +103,7 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void *argument);
+void ButtonTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -105,7 +138,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
+  /* creation of buttonTask */
+  buttonTaskHandle = osThreadNew(ButtonTask, NULL, &buttonTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -117,14 +151,13 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_ButtonTask */
 /**
- * @brief Task padrão do FreeRTOS (thread) criada pelo STM32CubeMX.
+ * @brief Tarefa (thread/task) do FreeRTOS.
  *
  * @details
- * Esta função é o corpo de uma *task* do FreeRTOS. Em um sistema com RTOS,
- * cada task funciona como um "programa" independente que o escalonador executa
- * em fatias de tempo, alternando entre várias tasks.
+ * Em um sistema baseado em RTOS, cada task funciona como um "programa" independente
+ * que o escalonador executa em fatias de tempo, alternando entre várias tasks.
  *
  * Diferença fundamental para o "superloop" (while(1) do bare-metal):
  * - Em bare-metal, o while(1) é o fluxo principal do programa.
@@ -148,10 +181,11 @@ void MX_FREERTOS_Init(void) {
  * @param argument Ponteiro genérico (não utilizado aqui). Pode ser usado para
  *        passar parâmetros para a task.
  */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_ButtonTask */
+void ButtonTask(void *argument)
 {
-	/* USER CODE BEGIN StartDefaultTask */
+	/* USER CODE BEGIN ButtonTask */
+
 	/**
 	 * @brief Variável local para armazenar o evento recebido da fila.
 	 *
@@ -279,7 +313,7 @@ void StartDefaultTask(void *argument)
 			}
 		}
 	}
-	/* USER CODE END StartDefaultTask */
+	/* USER CODE END ButtonTask */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -287,34 +321,8 @@ void StartDefaultTask(void *argument)
 /**
  * @brief Retorna o identificador (handle) da fila de mensagens dos botões.
  *
- * @details
- * Em FreeRTOS usando a camada CMSIS-RTOS2, filas são representadas por um
- * identificador do tipo ::osMessageQueueId_t (também chamado de *handle*).
- *
- * Este *handle* é necessário para que outros módulos do programa possam
- * interagir com a fila, por exemplo:
- * - enviar eventos de botão para a fila (ex.: a partir de uma ISR/EXTI callback)
- * - receber eventos na task responsável por processar botões
- *
- * Por padrão, o CubeMX gera o handle da fila como uma variável global no
- * arquivo `freertos.c`:
- * @code
- * osMessageQueueId_t buttonQueueHandle;
- * @endcode
- *
- * Entretanto, boas práticas de engenharia de software recomendam evitar
- * expor variáveis globais diretamente (via `extern`) sempre que possível.
- * Por isso, esta função é utilizada como uma "interface" para acessar o handle:
- *
- * Vantagens:
- * - encapsula o acesso ao recurso
- * - evita espalhar `extern` pelo projeto
- * - facilita refatorações futuras (ex.: mudar o nome da fila ou criar múltiplas filas)
- *
- * Atenção:
- * - A fila precisa ter sido criada antes desta função ser usada.
- *   Em geral, isso ocorre dentro de ::MX_FREERTOS_Init().
- * - Se chamada antes da criação da fila, o retorno pode ser `NULL`.
+ * @details Esta função é utilizada como uma "interface" para acessar o handle
+ *          da fila criada pelo RTOS
  *
  * @return ::osMessageQueueId_t Handle/ID da fila de eventos de botões.
  */

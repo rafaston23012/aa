@@ -18,13 +18,108 @@
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
-  */
+  *
+  * @section overview Visão Geral
+  *
+  * Esta aplicação demonstra a integração entre:
+  *
+  * - HAL (Hardware Abstraction Layer) → responsável por lidar com o hardware e interrupções
+  * - FreeRTOS (via CMSIS-RTOS2) → responsável por organizar e coordenar a execução
+  *
+  * O sistema reage a eventos de três botões físicos utilizando interrupções (EXTI).
+  * Cada evento é capturado rapidamente e enviado para uma fila do RTOS, onde será
+  * processado posteriormente por uma tarefa.
+  *
+  * Esse modelo é conhecido como "Deferred Interrupt Processing (Processamento diferido de
+  * interrupções)", ou seja:
+  * - A interrupção apenas registra o evento
+  * - A lógica pesada roda em contexto de tarefa
+  *
+  *
+  * @section user_code Código Implementado Manualmente
+  *
+  * As seguintes partes foram implementadas manualmente pelo usuário:
+  *
+  * - HAL_GPIO_EXTI_Callback()
+  *   → captura eventos de interrupção dos botões
+  *   → empacota os dados em uma estrutura
+  *   → envia para a fila do FreeRTOS
+  *
+  * - Estrutura ButtonEvent_t (definida em outro arquivo)
+  *   → representa um evento de botão (qual botão + tipo de borda)
+  *
+  * - Uso da fila (buttonQueueHandle) para comunicação entre ISR e task
+  *
+  * Todo o restante (inicialização do HAL, clock, setup básico do RTOS)
+  * foi gerado automaticamente pelo STM32CubeMX.
+  *
+  *
+  * @section mental_model Modelo Mental do Sistema
+  *
+  * O sistema pode ser entendido como um pipeline de eventos:
+  *
+  * @code
+  * [Botão físico]
+  *        ↓
+  * [Interrupção EXTI (hardware)]
+  *        ↓
+  * [HAL_GPIO_EXTI_Callback()  ← contexto de ISR]
+  *        ↓
+  * [Fila do FreeRTOS (queue)]
+  *        ↓
+  * [ButtonTask ← contexto de tarefa]
+  *        ↓
+  * [Atualização do LED RGB]
+  * @endcode
+  *
+  * Características importantes:
+  *
+  * - Eventos podem ocorrer de forma concorrente (interrupções)
+  * - A fila garante:
+  *   - ordem de processamento
+  *   - desacoplamento entre ISR e lógica
+  *
+  * - Apenas a task manipula o LED → evita condições de corrida
+  * - ISR é rápida e não bloqueante
+  *
+  * Esse modelo é amplamente utilizado em sistemas embarcados reais.
+  *
+  *
+  * @section cube_config Configuração no CubeMX
+  *
+  * No STM32CubeMX, foram configurados:
+  *
+  * GPIO:
+  * - 3 pinos como entrada com interrupção (EXTI)
+  * - Trigger por borda (subida, descida ou ambos)
+  *
+  * FreeRTOS:
+  * - 1 fila (queue) para eventos de botão
+  *   - profundidade: 8
+  *   - tipo: ButtonEvent_t
+  *
+  * - 1 tarefa:
+  *   - Nome: buttonTask
+  *   - Prioridade: Normal
+  *
+  * NVIC:
+  * - Interrupções EXTI habilitadas para os pinos dos botões
+  *
+  *
+  * Observação didática:
+  * Este projeto mostra uma evolução em relação ao polling:
+  *
+  * - rtos_botoes_com_debouncer: leitura contínua dos botões (polling)
+  * - Agora: eventos assíncronos + RTOS
+  *
+  * Isso torna o sistema mais eficiente e escalável.
+  *
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
 #include "gpio.h"
-#include "button_queue.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -61,52 +156,13 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/**
-  * @brief Ponto de entrada da aplicação (função principal).
-  *
-  * @details
-  * Esta função é gerada pelo STM32CubeMX/STM32CubeIDE e representa o fluxo
-  * padrão de inicialização de um firmware STM32 usando HAL + FreeRTOS.
-  *
-  * Para quem está tendo o primeiro contato com FreeRTOS, é importante entender
-  * que o programa possui duas fases bem definidas:
-  *
-  * 1) Fase "Bare-metal" (antes do FreeRTOS iniciar)
-  * Nesta fase, ainda NÃO existe multitarefa. O código roda como em um firmware
-  * tradicional: uma instrução após a outra.
-  *
-  * Aqui acontecem:
-  * - inicialização do microcontrolador (HAL_Init)
-  * - configuração do clock (SystemClock_Config)
-  * - inicialização dos periféricos (MX_GPIO_Init, MX_USART_Init, etc.)
-  *
-  * - Nessa etapa você ainda pode usar delays do HAL (ex.: HAL_Delay).
-  * - Ainda não existem tasks, escalonador, semáforos, filas, etc.
-  *
-  * 2) Fase "RTOS" (após o scheduler iniciar)
-  * Depois que o FreeRTOS é inicializado e o scheduler é iniciado, o controle do
-  * programa passa a ser do sistema operacional de tempo real.
-  *
-  * A partir desse ponto:
-  * - o FreeRTOS passa a decidir qual task executa
-  * - as tasks podem ser preemptadas (interrompidas) para outra task rodar
-  * - delays e temporizações devem ser feitos com funções do RTOS
-  *   (ex.: osDelay / vTaskDelay), e não com loops de espera
-  *
-  * Importante:
-  * Após chamar osKernelStart(), a função main() não deve mais executar lógica
-  * da aplicação. Toda a lógica do programa deve estar dentro das tasks criadas
-  * em MX_FREERTOS_Init() (arquivo freertos.c).
-  *
-  * - Se houver inicializações extras (antes do RTOS iniciar), coloque o seu sódigo em
-  *     `USER CODE BEGIN 2`
-  * - Lógica de aplicação: dentro das tasks do FreeRTOS (em freertos.c)
-  *
-  * @retval int Código de retorno (não utilizado em aplicações embarcadas).
-  */
 
 /* USER CODE END 0 */
 
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
@@ -173,10 +229,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 128;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -186,8 +246,8 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV4;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
@@ -199,39 +259,36 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 /**
- * @brief Callback chamada pelo HAL quando ocorre interrupção em pinos EXTI (botões).
+ * @brief Callback de interrupção para pinos GPIO (EXTI).
  *
- * Esta função é chamada automaticamente pelo HAL dentro do handler da interrupção
- * do pino GPIO configurado para EXTI. Ou seja, ela é executada no contexto de uma ISR.
- *
- * @param[in] GPIO_Pin Identificador do pino que gerou a interrupção. Ex.: GPIO_PIN_12, GPIO_PIN_15, GPIO_PIN_5.
+ * @param[in] GPIO_Pin Pino que gerou a interrupção.
  *
  * @details
- * - O objetivo desta função é registrar eventos de botão sem executar código pesado dentro da ISR.
- * - Em sistemas RTOS, é importante que a ISR seja curta e rápida, para que outras interrupções
- *   e tasks possam ser atendidas sem atraso.
+ * Esta função é chamada automaticamente pelo HAL sempre que ocorre
+ * uma interrupção em um pino configurado como EXTI.
  *
- * Passos realizados:
- * 1. Identifica qual botão gerou o evento, com base no pino que gerou a interrupção.
- * 2. Lê o estado atual do pino (SET ou RESET) para determinar se ocorreu uma borda de subida
- *    (pressionamento/soltura do botão, dependendo da configuração do circuito e pull-up/pull-down).
- * 3. Cria uma estrutura `ButtonEvent_t` contendo:
- *    - `button_id`: identificador do botão
- *    - `rising_edge`: flag indicando borda de subida (1) ou descida (0)
- * 4. Envia a estrutura para a fila do FreeRTOS (`buttonQueueHandle`) usando
- *    `osMessageQueuePut()` com timeout 0, ou seja, não bloqueante.
+ * @attention Esta função executa em contexto de interrupção (ISR).
  *
- * @note Nunca use funções bloqueantes dentro de ISR, como HAL_Delay() ou loops longos,
- *       pois isso pode travar o sistema ou atrasar outras interrupções.
+ * Responsabilidades:
+ * - Identificar qual botão gerou o evento
+ * - Determinar o tipo de borda (subida/descida)
+ * - Criar um evento (ButtonEvent_t)
+ * - Enviar o evento para a fila do RTOS
  *
- * @note Se a fila estiver cheia, o evento será descartado. Em aplicações críticas,
- *       pode-se contar os eventos perdidos ou aumentar a profundidade da fila.
+ * @warning O que NÃO fazer aqui:
+ * - Não usar delays
+ * - Não executar lógica complexa. Delegue-a para tarefas
+ * - Não acessar recursos compartilhados diretamente
+ * - Código bloqueante
  *
- * @note O tratamento dos LEDs, debounce e lógica de controle são realizados em uma task separada,
- *       que retira os eventos da fila e processa de forma segura e eficiente.
+ * Integração HAL + RTOS:
+ * - HAL detecta a interrupção
+ * - RTOS organiza o processamento via fila
  *
- * @warning Esta função não deve realizar delays nem operações demoradas, apenas empacotar
- *          o evento e enviar para a fila.
+ * Isso garante:
+ * - segurança (sem race conditions)
+ * - escalabilidade
+ * - melhor desempenho
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -259,7 +316,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             return; /* pino desconhecido: ignora */
     }
 
-    /* Envia evento para a fila (não bloqueante dentro de ISR) */
+    /* Envio não bloqueante para fila tratada por uma tarefa */
     (void)osMessageQueuePut(get_buttonQueueHandle(), &evt, 0U, 0U);
 }
 

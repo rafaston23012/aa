@@ -132,12 +132,6 @@ SamplePair_t sample;
 
 /* USER CODE END Variables */
 /* Definitions for adcTask */
-/**
-  * @brief Task de aquisição ADC.
-  *
-  * Controla o disparo das conversões e sincroniza o ciclo de aquisição
-  * por meio de event flags.
-  */
 osThreadId_t adcTaskHandle;
 const osThreadAttr_t adcTask_attributes = {
   .name = "adcTask",
@@ -145,11 +139,6 @@ const osThreadAttr_t adcTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for usartTask */
-/**
-  * @brief Task de transmissão USART.
-  *
-  * Consome dados da fila e realiza a transmissão via UART.
-  */
 osThreadId_t usartTaskHandle;
 const osThreadAttr_t usartTask_attributes = {
   .name = "usartTask",
@@ -157,26 +146,19 @@ const osThreadAttr_t usartTask_attributes = {
   .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for sampleQueue */
-/**
-  * @brief Fila de mensagens para transporte de amostras ADC.
-  *
-  * Utilizada para comunicação entre o contexto de interrupção (via callback)
-  * e a task de transmissão (UsartTask).
-  */
 osMessageQueueId_t sampleQueueHandle;
 const osMessageQueueAttr_t sampleQueue_attributes = {
   .name = "sampleQueue"
 };
 /* Definitions for adcEvent */
-/**
-  * @brief Flag de evento para sincronização do ciclo ADC.
-  *
-  * Sinaliza a conclusão de um par de conversões (IN6 e IN9),
-  * permitindo que a AdcTask inicie um novo ciclo de aquisição.
-  */
 osEventFlagsId_t adcEventHandle;
 const osEventFlagsAttr_t adcEvent_attributes = {
   .name = "adcEvent"
+};
+/* Definitions for usartEvent */
+osEventFlagsId_t usartEventHandle;
+const osEventFlagsAttr_t usartEvent_attributes = {
+  .name = "usartEvent"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -247,6 +229,9 @@ void MX_FREERTOS_Init(void) {
   /* Create the event(s) */
   /* creation of adcEvent */
   adcEventHandle = osEventFlagsNew(&adcEvent_attributes);
+
+  /* creation of usartEvent */
+  usartEventHandle = osEventFlagsNew(&usartEvent_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -327,6 +312,7 @@ void AdcTask(void *argument)
   *      X: [   o     ]  Y: [      o ]
   *      @endcode
   *    - Transmite o buffer via UART utilizando modo não bloqueante.
+  *    - A task bloqueia aguardando o evento que indica a conclusão de transmissão
   *
   * A visualização utiliza uma barra de tamanho fixo (@c BAR_WIDTH), onde a
   * posição do caractere 'o' representa a magnitude do sinal em cada eixo:
@@ -418,7 +404,9 @@ void UsartTask(void *argument)
 			 *  - CPU permanece livre durante transmissão.
 			 *  - Arquitetura totalmente não bloqueante.
 			 */
-			HAL_UART_Transmit_IT(&huart1, tx_buffer, sizeof(tx_buffer)-1);
+			if (HAL_UART_Transmit_IT(&huart1, tx_buffer, strlen((char *)tx_buffer) + 1)) {
+				osEventFlagsWait(usartEventHandle, 0x01, osFlagsWaitAny, osWaitForever);
+			}
 		}
 	}
   /* USER CODE END UsartTask */
@@ -448,6 +436,18 @@ osMessageQueueId_t get_sampleQueueHandle(void) {
   */
 void setaAdcEventFlag () {
     osEventFlagsSet(adcEventHandle, 0x01);
+}
+
+/**
+  * @brief Sinaliza evento de término de transmissão USART.
+  *
+  * Utilizada para sincronizar a conclusão de um par de conversões
+  * com a task responsável por iniciar um novo ciclo.
+  *
+  * @retval None
+  */
+void setaUsartEventFlag () {
+    osEventFlagsSet(usartEventHandle, 0x01);
 }
 
 /* USER CODE END Application */

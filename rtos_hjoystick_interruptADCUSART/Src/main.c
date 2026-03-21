@@ -157,6 +157,7 @@ void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 osMessageQueueId_t get_sampleQueueHandle(void);
 void setaAdcEventFlag ();
+void setaUsartEventFlag ();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -316,9 +317,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
             HAL_ADC_ConfigChannel(hadc, &sConfig);
 
             /* Envio não bloqueante para fila tratada por uma tarefa */
-            (void)osMessageQueuePut(get_sampleQueueHandle(), &amostra, 0U, 0U);
+             (void)osMessageQueuePut(get_sampleQueueHandle(), &amostra, 0U, 0U);
 
-            setaAdcEventFlag();
+           setaAdcEventFlag();
 
             adc_channel = 9;
         }
@@ -365,6 +366,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 void HAL_UART_TxCpltCallback (UART_HandleTypeDef *phuart) {
     if (phuart->Instance == USART1)  // garante que é a UART correta
     {
+        setaUsartEventFlag();
     }
 }
 

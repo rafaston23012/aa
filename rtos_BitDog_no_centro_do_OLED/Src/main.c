@@ -42,17 +42,6 @@
   *
   * As principais partes implementadas manualmente neste arquivo são:
   *
-  * - Inclusão do driver do display que está no projeto hal_BDL_Library (veja
-  *  a configuração em Properties > C/C++ Build > Settings):
-  *   @code
-  *   #include "ssd1306.h"
-  *   @endcode
-  *
-  * - Inicialização do display OLED:
-  *   @code
-  *   ssd1306_Init();
-  *   @endcode
-  *
   * - Integração com o FreeRTOS:
   *   @code
   *   osKernelInitialize();
@@ -60,9 +49,13 @@
   *   osKernelStart();
   *   @endcode
   *
-  * Observação:
-  * A lógica de renderização da imagem não está neste arquivo, mas sim
+  * @note
+  * - A lógica de renderização da imagem não está neste arquivo, mas sim
   * encapsulada na tarefa OledTask definida em freertos.c.
+  *
+  * - O driver do display está disponível na biblioteca estática libhal_BDL_Library.a.
+  * Consulte a configuração do projeto (Properties > C/C++ Build > Settings) para ver
+  * como a biblioteca é vinculada sem a necessidade de copiar os arquivos-fonte.
   *
   * @section mental_model Modelo Mental do Sistema
   *
@@ -144,8 +137,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-/* Protótipos das funções relacionadas ao driver SSD1306 (OLED) */
-#include "ssd1306.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -212,8 +204,6 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
-  /* Inicialiar o driver ssd1306 */
-  ssd1306_Init();
 
   /* USER CODE END 2 */
 

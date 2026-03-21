@@ -27,7 +27,8 @@
  *     - Stack: 512 bytes
  *     - Função: Controle do display OLED
  *
- * A tarefa OledTask é responsável por gerenciar a saída gráfica no display OLED.
+ * A tarefa OledTask é responsável por iniciar o driver ssd1306 e gerenciar a saída gráfica
+ * no display OLED.
  *
  * @note
  * - A renderização é feita de forma manual e pode ser otimizada utilizando
@@ -209,6 +210,8 @@ void MX_FREERTOS_Init(void) {
 void OledTask(void *argument)
 {
 	/* USER CODE BEGIN OledTask */
+	/* Inicialiar o driver ssd1306 */
+	ssd1306_Init();
 	/* Infinite loop */
 	for(;;)
 	{

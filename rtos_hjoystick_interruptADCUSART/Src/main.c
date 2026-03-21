@@ -82,7 +82,8 @@
   * E para sincronização do ciclo completo:
   *
   * @code
-  * Callback → seta flag → AdcTask libera novo ciclo
+  * Callback de EOC → seta flag → AdcTask libera novo ciclo
+  * Callback de TXE → seta flag → UsartTask libera nova trasnsmissão
   * @endcode
   *
   * Esse modelo garante:
@@ -367,10 +368,25 @@ void HAL_UART_TxCpltCallback (UART_HandleTypeDef *phuart) {
     }
 }
 
-
+/**
+ * @brief Lê amostras dos canais e armazena em uma estrutura de saída.
+ *
+ * @details
+ * Esta função copia os valores atuais das amostras dos canais 6 e 9
+ * da estrutura global `amostra` para a estrutura apontada por `par`.
+ * É utilizada para encapsular o acesso às amostras, facilitando a
+ * organização e possível modificação futura da origem dos dados.
+ *
+ * @param[out] par Ponteiro para a estrutura do tipo SamplePair_t
+ *                 onde os valores dos canais serão armazenados.
+ *
+ * @pre O ponteiro `par` deve ser válido (não nulo).
+ * @post Os campos `ch6` e `ch9` da estrutura apontada por `par`
+ *       conterão os valores atuais das respectivas amostras do ADC1.
+ */
 void le_amostras (SamplePair_t *par) {
-	par->ch6 = amostra.ch6;
-	par->ch9 = amostra.ch9;
+    par->ch6 = amostra.ch6;
+    par->ch9 = amostra.ch9;
 }
 
 /* USER CODE END 4 */

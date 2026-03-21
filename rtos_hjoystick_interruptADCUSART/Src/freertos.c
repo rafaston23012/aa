@@ -52,20 +52,26 @@
   * - Absorver variações de tempo entre aquisição e transmissão
   * - Evitar perda de dados em picos de processamento
   *
-  *E uma flag de evento é definida.
+  *E duas flags de evento são definidas.
   * - @c adcEvent:
   *   Flag de evento utilizada para sincronizar a conclusão de um ciclo completo
   *   de aquisição ADC (par de canais).
   *
+  * - @c usartEvent:
+  *   Flag de evento utilizada para sincronizar a conclusão de uma transmissão completa
+  *   de uma string.
+  *
   * Funcionamento:
   * - O callback do ADC sinaliza a flag ao finalizar um par de conversões
   * - A @c AdcTask aguarda essa sinalização antes de iniciar um novo ciclo
+  * - O callback do USART sinaliza a flag ao finalizar uma transmissão de string
+  * - A @c UsartTask aguarda essa sinalização antes de iniciar uma nova transmissão
   *
   * Papel:
   * - Garantir controle determinístico do fluxo de aquisição
-  * - Evitar sobreposição de ciclos de conversão
-  * - Manter o disparo do ADC sob controle explícito da task
-  *
+  * - Evitar sobreposição de ciclos de conversão/transmissão
+  * - Manter o disparo do ADC sob controle explícito da AdcTask
+  * - Manter o início de uma transmissão sob controle explícito da UsartTask
   * O RTOS atua como um orquestrador transparente do fluxo de execução:
   *
   * @code
@@ -75,13 +81,18 @@
   *      ↓
   * [Fila (sampleQueue)]
   *      ↓
-  * [UsartTask]
+  * [UsartTask] → envia string
+  *      ↓
+  * [ISR / Callback USART]
+  *      ↓
+  * [Terminal Serial]
   * @endcode
   *
   * E para sincronização:
   *
   * @code
   * Callback ADC → seta flag → AdcTask libera novo ciclo
+  * Callback USART → seta flag → usartTask libera nova transmissão
   * @endcode
   *
   * Essa organização permite que:
@@ -89,9 +100,7 @@
   * - O código permaneça modular e escalável
   * - A complexidade de concorrência seja abstraída pelo RTOS
   *
-  * Em outras palavras:
-  *
-  * 🔑 O programador define *o que* deve acontecer, enquanto o RTOS gerencia
+  * Em outras palavras, o programador define *o que* deve acontecer, enquanto o RTOS gerencia
   * *quando* e *em que ordem* as tarefas são executadas.
   */
 /* USER CODE END Header */

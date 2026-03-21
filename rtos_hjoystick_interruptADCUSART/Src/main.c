@@ -155,9 +155,9 @@ volatile uint8_t adc_channel = 9;  /**< Canal ADC atualmente em conversão (come
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-osMessageQueueId_t get_sampleQueueHandle(void);
 void setaAdcEventFlag ();
 void setaUsartEventFlag ();
+void le_amostras();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -291,63 +291,60 @@ void SystemClock_Config(void)
   */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-    if(hadc->Instance == ADC1)
-    {
-        uint16_t value = HAL_ADC_GetValue(hadc);  /**< Lê o valor convertido */
+	if(hadc->Instance == ADC1)
+	{
+		uint16_t value = HAL_ADC_GetValue(hadc);  /**< Lê o valor convertido */
 
-        /* Alterna entre os canais 6 (EIXO_Y) e 9 (EIXO_X) */
-        if(adc_channel == 6)
-        {
-            amostra.ch6 = value;
+		/* Alterna entre os canais 6 (EIXO_Y) e 9 (EIXO_X) */
+		if(adc_channel == 6)
+		{
+			amostra.ch6 = value;
 
-            /**
-             * @brief Configuração do próximo canal: ADC_CHANNEL_9
-             *
-             * IMPORTANTE:
-             * A estrutura é inicializada com zero para evitar lixo de memória.
-             * Em seguida, TODOS os campos relevantes são explicitamente definidos.
-             */
-            ADC_ChannelConfTypeDef sConfig = {0};
+			/**
+			 * @brief Configuração do próximo canal: ADC_CHANNEL_9
+			 *
+			 * IMPORTANTE:
+			 * A estrutura é inicializada com zero para evitar lixo de memória.
+			 * Em seguida, TODOS os campos relevantes são explicitamente definidos.
+			 */
+			ADC_ChannelConfTypeDef sConfig = {0};
 
-            sConfig.Channel      = ADC_CHANNEL_9;               /**< Seleção do canal físico */
-            sConfig.Rank         = 1;                           /**< Rank 1 na sequência regular */
-            sConfig.SamplingTime = ADC_SAMPLETIME_112CYCLES;    /**< Tempo de amostragem */
-            sConfig.Offset       = 0;                           /**< Offset digital */
+			sConfig.Channel      = ADC_CHANNEL_9;               /**< Seleção do canal físico */
+			sConfig.Rank         = 1;                           /**< Rank 1 na sequência regular */
+			sConfig.SamplingTime = ADC_SAMPLETIME_112CYCLES;    /**< Tempo de amostragem */
+			sConfig.Offset       = 0;                           /**< Offset digital */
 
-            HAL_ADC_ConfigChannel(hadc, &sConfig);
+			HAL_ADC_ConfigChannel(hadc, &sConfig);
 
-            /* Envio não bloqueante para fila tratada por uma tarefa */
-             (void)osMessageQueuePut(get_sampleQueueHandle(), &amostra, 0U, 0U);
+			setaAdcEventFlag();
 
-           setaAdcEventFlag();
+			adc_channel = 9;
+		}
+		else
+		{
+			amostra.ch9 = value;
 
-            adc_channel = 9;
-        }
-        else
-        {
-            amostra.ch9 = value;
+			/**
+			 * @brief Configuração do próximo canal: ADC_CHANNEL_6
+			 *
+			 * Todos os campos da estrutura são explicitamente configurados
+			 * para garantir previsibilidade do hardware.
+			 */
+			ADC_ChannelConfTypeDef sConfig = {0};
 
-            /**
-             * @brief Configuração do próximo canal: ADC_CHANNEL_6
-             *
-             * Todos os campos da estrutura são explicitamente configurados
-             * para garantir previsibilidade do hardware.
-             */
-            ADC_ChannelConfTypeDef sConfig = {0};
+			sConfig.Channel      = ADC_CHANNEL_6;
+			sConfig.Rank         = 1;
+			sConfig.SamplingTime = ADC_SAMPLETIME_112CYCLES;
+			sConfig.Offset       = 0;
 
-            sConfig.Channel      = ADC_CHANNEL_6;
-            sConfig.Rank         = 1;
-            sConfig.SamplingTime = ADC_SAMPLETIME_112CYCLES;
-            sConfig.Offset       = 0;
+			HAL_ADC_ConfigChannel(hadc, &sConfig);
 
-            HAL_ADC_ConfigChannel(hadc, &sConfig);
+			adc_channel = 6;
 
-            adc_channel = 6;
-
-            /**< Reinicia a conversão em modo interrupção */
-            HAL_ADC_Start_IT(hadc);
-        }
-    }
+			/**< Reinicia a conversão em modo interrupção */
+			HAL_ADC_Start_IT(hadc);
+		}
+	}
 }
 
 /**
@@ -368,6 +365,12 @@ void HAL_UART_TxCpltCallback (UART_HandleTypeDef *phuart) {
     {
         setaUsartEventFlag();
     }
+}
+
+
+void le_amostras (SamplePair_t *par) {
+	par->ch6 = amostra.ch6;
+	par->ch9 = amostra.ch9;
 }
 
 /* USER CODE END 4 */

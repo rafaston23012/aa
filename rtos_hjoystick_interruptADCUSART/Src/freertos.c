@@ -163,7 +163,10 @@ const osEventFlagsAttr_t usartEvent_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+void setaUsartEventFlag ();
+void setaAdcEventFlag ();
+osMessageQueueId_t get_sampleQueueHandle(void);
+void le_amostras();
 /* USER CODE END FunctionPrototypes */
 
 void AdcTask(void *argument);
@@ -289,6 +292,14 @@ void AdcTask(void *argument)
 		HAL_ADC_Start_IT(&hadc1);
 
 		osEventFlagsWait(adcEventHandle, 0x01, osFlagsWaitAny, osWaitForever);
+
+        /* Envio não bloqueante para fila tratada por uma tarefa */
+		SamplePair_t par;
+
+		le_amostras (&par);
+
+        (void)osMessageQueuePut(sampleQueueHandle, &par, 0U, 0U);
+
 	}
   /* USER CODE END AdcTask */
 }

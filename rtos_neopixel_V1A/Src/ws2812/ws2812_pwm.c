@@ -132,12 +132,32 @@ ws2812_status_t ws2812_pwm_init(void)
  * 4. Inicia o PWM no canal 3 do TIM1.
  *
  * O buffer @ref dma_buffer deve conter previamente:
- * - Os bits codificados de todos os LEDs (24 bits por LED).
- * - Slots adicionais de reset (linha baixa) definidos por
+ * - os bits codificados de todos os LEDs (24 bits por LED).
+ * - slots adicionais de reset (linha baixa) definidos por
  *   @ref WS2812_RESET_SLOTS.
  *
  * A finalização da transmissão é tratada no callback
  * @ref my_DMA_XferCpltCallback().
+ *
+ * @note
+ * A HAL não fornece uma função específica para a combinação do evento
+ * de Update do timer (TIM1_UP) com um canal de PWM (TIM1_CH3) utilizando DMA.
+ *
+ * Em particular:
+ * - não existe uma API do tipo @c HAL_TIM_UP_Start_DMA().
+ * - as funções disponíveis (ex: @c HAL_TIM_PWM_Start_DMA) estão associadas
+ *   ao evento de comparação (Capture/Compare), como o fim do pulso no canal,
+ *   e utilizam o callback @c HAL_TIM_PWM_PulseFinishedCallback().
+ *
+ * Portanto, para aplicações como o controle de WS2812 — onde o sincronismo
+ * preciso é baseado no evento de Update do timer — é necessário:
+ * - inicializar o DMA manualmente (ex: @c HAL_DMA_Start_IT)
+ * - habilitar explicitamente a requisição DMA via @c TIM_DMA_UPDATE
+ * - implementar o callback de conclusão no nível do DMA
+ *
+ * Essa abordagem oferece maior flexibilidade e permite explorar combinações
+ * de eventos não diretamente suportadas pela HAL, ao custo de maior controle
+ * manual sobre o hardware.
  *
  * @retval WS2812_OK   Transmissão iniciada com sucesso.
  * @retval WS2812_ERRO Falha ao iniciar a transferência DMA.
@@ -147,8 +167,6 @@ ws2812_status_t ws2812_tim1ch3_dma_show( uint8_t *dma_buffer, uint32_t DataLengt
 	static uint16_t tmp_buffer[
 		WS2812_MAX_LEDS * WS2812_BITS_LED + WS2812_RESET_SLOTS
 	];
-
-//    HAL_DMA_Abort(&hdma_tim1_up);
 
     for (uint32_t i=0; i<DataLength; i++) {
     	tmp_buffer[i] = dma_buffer[i];

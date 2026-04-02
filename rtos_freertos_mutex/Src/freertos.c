@@ -8,6 +8,16 @@
   * @date    01/04/2026
   *
   ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file is provided, this software is distributed AS-IS.
+  *
+  ******************************************************************************
   * @details
   * Este projeto demonstra o uso de mecanismos de sincronização no FreeRTOS,
   * utilizando um semáforo binário configurado como Mutex para proteger o acesso
@@ -82,16 +92,6 @@
   * - Em aplicações reais, recomenda-se:
   *      - Uso de Mutex (osMutex)
   *      - Uso de filas (Queue) com UART via DMA ou interrupção (IT)
-  *
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file is provided, this software is distributed AS-IS.
   *
   ******************************************************************************
   */

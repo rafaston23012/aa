@@ -93,6 +93,32 @@
   *      - Uso de Mutex (osMutex)
   *      - Uso de filas (Queue) com UART via DMA ou interrupção (IT)
   *
+  * - O STM32CubeMX não gera automaticamente tarefas com parâmetros distintos.
+  *      - As funções de tarefa criadas são independentes (ex: PrintTask1, PrintTask2)
+  *      - Não há suporte direto para instanciar múltiplas tarefas a partir de uma
+  *        mesma função passando argumentos diferentes
+  *
+  * - Para tornar uma função reutilizável e reentrante, deve-se:
+  *      - Passar parâmetros via argumento da task (void *argument)
+  *      - Evitar variáveis globais não protegidas
+  *
+  * - Duas abordagens são recomendadas:
+  *
+  *      1. Uso de wrappers (gerado pelo CubeMX):
+  *         @code
+  *         void PrintTask1(void *argument) { PrintTask(&task1_id); }
+  *         void PrintTask2(void *argument) { PrintTask(&task2_id); }
+  *         @endcode
+  *
+  *      2. Criação manual das tarefas (fora do padrão gerado):
+  *         @code
+  *         osThreadNew(PrintTask, &task1_id, &printTask1_attributes);
+  *         osThreadNew(PrintTask, &task2_id, &printTask2_attributes);
+  *         @endcode
+  *
+  * - O uso de parâmetros por tarefa é a forma correta de garantir reentrância
+  *   e reutilização de código em sistemas baseados em RTOS.
+  *
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -128,7 +154,7 @@
   * - 0: Não utiliza Mutex (pode ocorrer corrupção de dados)
   * - 1: Utiliza Mutex (acesso exclusivo à UART)
   */
-#define USE_MUTEX 1
+#define USE_MUTEX 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -228,7 +254,6 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_PrintTask0 */
 /* USER CODE BEGIN Header_PrintTask0 */
 /**
   * @brief  Tarefa padrão gerada pelo CubeMX (não utilizada neste projeto).

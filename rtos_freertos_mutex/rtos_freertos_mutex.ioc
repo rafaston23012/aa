@@ -2,9 +2,9 @@
 CAD.formats=
 CAD.pinconfig=
 CAD.provider=
-FREERTOS.BinarySemaphores01=xMutex,Dynamic,NULL,Available
 FREERTOS.FootprintOK=true
-FREERTOS.IPParameters=Tasks01,configUSE_NEWLIB_REENTRANT,BinarySemaphores01,FootprintOK
+FREERTOS.IPParameters=Tasks01,configUSE_NEWLIB_REENTRANT,FootprintOK,Mutexes01
+FREERTOS.Mutexes01=xMutex,Dynamic,NULL,Available
 FREERTOS.Tasks01=printTask0,24,128,PrintTask0,Default,NULL,Dynamic,NULL,NULL;printTask2,8,128,PrintTask,Default,(void *)"1",Dynamic,NULL,NULL;printTask1,8,128,PrintTask,Default,(void *)"2",Dynamic,NULL,NULL
 FREERTOS.configUSE_NEWLIB_REENTRANT=1
 File.Version=6

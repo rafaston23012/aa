@@ -21,8 +21,7 @@
   ******************************************************************************
   * @details
   * Este projeto demonstra o uso de mecanismos de sincronização no FreeRTOS,
-  * utilizando um semáforo binário como Mutex para proteger o acesso a um
-  * recurso compartilhado (UART).
+  * utilizando um Mutex para proteger o acesso a um recurso compartilhado (UART).
   *
   * Além disso, o projeto evidencia o comportamento de concorrência entre tarefas
   * de mesma prioridade e os efeitos do escalonamento cooperativo/preemptivo
@@ -59,10 +58,10 @@
   *
   * @section mutex Uso do Mutex
   *
-  * O projeto utiliza um semáforo binário como mecanismo de exclusão mútua:
+  * O projeto utiliza um mutex como mecanismo de exclusão mútua:
   *
   * @code
-  * xMutexHandle = osSemaphoreNew(1, 1, &xMutex_attributes);
+  * xMutexHandle = osMutexNew(&xMutex_attributes);
   * @endcode
   *
   * Quando habilitado, o acesso à UART é serializado, garantindo que apenas
@@ -110,7 +109,6 @@
   *   e não por preempção durante a execução da função de transmissão
   *
   * - Em aplicações reais, recomenda-se:
-  *      - Uso de Mutex nativo (osMutex) em vez de semáforo
   *      - Uso de filas (Queue) para desacoplamento entre tarefas
   *      - Uso de UART com DMA ou interrupções (IT)
   *
@@ -211,8 +209,8 @@ const osThreadAttr_t printTask1_attributes = {
   .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for xMutex */
-osSemaphoreId_t xMutexHandle;
-const osSemaphoreAttr_t xMutex_attributes = {
+osMutexId_t xMutexHandle;
+const osMutexAttr_t xMutex_attributes = {
   .name = "xMutex"
 };
 
@@ -235,14 +233,13 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
+  /* Create the mutex(es) */
+  /* creation of xMutex */
+  xMutexHandle = osMutexNew(&xMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
-
-  /* Create the semaphores(s) */
-  /* creation of xMutex */
-  xMutexHandle = osSemaphoreNew(1, 1, &xMutex_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -338,7 +335,7 @@ void PrintTask0(void *argument)
   * ## Sincronização (controle por macro USE_MUTEX)
   *
   * - Quando USE_MUTEX = 1:
-  *   - A tarefa adquire um semáforo (xMutexHandle) antes de acessar a UART
+  *   - A tarefa adquire um mutex (xMutexHandle) antes de acessar a UART
   *   - Garante exclusão mútua no uso do periférico
   *   - Evita interleaving (embaralhamento) de caracteres entre tarefas concorrentes
   *
@@ -358,7 +355,6 @@ void PrintTask0(void *argument)
   *
   * ## Observações importantes
   *
-  * - A UART não é intrinsecamente thread-safe; o uso de mutex é recomendado em aplicações reais
   * - Este exemplo possui caráter didático, visando demonstrar:
   *   - concorrência entre tarefas
   *   - condições de corrida
@@ -377,7 +373,7 @@ void PrintTask(void *argument)
   for(;;)
   {
 #if USE_MUTEX
-		if (osSemaphoreAcquire(xMutexHandle, osWaitForever) == osOK)
+		if (osMutexAcquire(xMutexHandle, osWaitForever) == osOK)
 		{
 			for (int i = 0; i < 20; i++) {
 				/*
@@ -387,7 +383,7 @@ void PrintTask(void *argument)
 			    osDelay(1);
 			}
 			HAL_UART_Transmit(&huart1, (uint8_t*)"\r\n", strlen("\r\n"), HAL_MAX_DELAY);
-			osSemaphoreRelease(xMutexHandle);
+			osMutexRelease(xMutexHandle);
 		}
 #else // Caso sem Mutex, mesmo código porém sem aguardar, tomar e devolver o Mutex
 		for (int i = 0; i < 20; i++) {

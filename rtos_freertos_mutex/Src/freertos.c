@@ -48,7 +48,7 @@
   *     quando não há proteção
   *
   * - PrintTask0:
-  *   - Tarefa padrão gerada pelo CubeMX com prioridade superior (osPriorityNormal)
+  *   - Tarefa padrão gerada pelo CubeMX 6.16.0 com prioridade superior (osPriorityNormal)
   *   - Permanece bloqueada a maior parte do tempo (osDelay(10000))
   *   - Não interfere significativamente na execução das demais tarefas
   *   - Mantida apenas como referência estrutural
